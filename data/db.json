@@ -1,0 +1,76 @@
+{
+  "mathadhish": {
+    "name": "Shri Mahant Ji",
+    "phone": "+91-9876543210",
+    "details": "The revered Mathadhish of Prachin Baurahwa Mahadev Shiv Mandir, guiding devotees and managing temple rituals.",
+    "photoUrl": "/images/shivaling_canopy.jpg"
+  },
+  "schedule": [
+    {
+      "id": "1",
+      "date": "2026-07-05",
+      "time": "06:00 AM",
+      "pujaName": "Maha Rudrabhishek",
+      "conductor": "Pandit Sharma Ji"
+    },
+    {
+      "id": "2",
+      "date": "2026-07-06",
+      "time": "08:00 AM",
+      "pujaName": "Aarti & Bhajans",
+      "conductor": "Pandit Ji"
+    }
+  ],
+  "donors": [
+    {
+      "id": "1",
+      "name": "Shri Ramsevak Singh",
+      "type": "Donation",
+      "amount": "₹21,000",
+      "details": "Contributed for temple marble flooring.",
+      "created_at": "2026-07-02T16:30:58.078438+00:00"
+    },
+    {
+      "id": "2",
+      "name": "Smt. Shanti Devi",
+      "type": "Sewa (Service)",
+      "amount": "",
+      "details": "Organized daily flower decorations for Shravan month.",
+      "created_at": "2026-07-02T16:30:58.078438+00:00"
+    },
+    {
+      "id": "1783009413054",
+      "name": "Shri Vinod Sharma",
+      "type": "Material / Goods",
+      "amount": "100 bags of cement",
+      "details": "Donated for wall boundary",
+      "created_at": "2026-07-02T16:30:58.078438+00:00"
+    }
+  ],
+  "gallery": [
+    {
+      "id": "1",
+      "title": "Temple Domes",
+      "description": "The magnificent white structures and domes of the ancient shrine.",
+      "imageUrl": "/images/temple_exterior.jpg"
+    },
+    {
+      "id": "2",
+      "title": "Deity Darshan",
+      "description": "Lord Shiva Lingam adorned with a silver canopy and flowers.",
+      "imageUrl": "/images/shivaling_canopy.jpg"
+    },
+    {
+      "id": "3",
+      "title": "Gram Patharwa Signboard",
+      "description": "The historic stone board marking the entrance of the temple.",
+      "imageUrl": "/images/signboard.jpg"
+    },
+    {
+      "id": "1783009151438",
+      "title": "Ancient Shiva Temple Signboard",
+      "description": "Historic sign board of Prachin Baurahwa Mahadev.",
+      "imageUrl": "/images/signboard.jpg"
+    }
+  ]
+}
