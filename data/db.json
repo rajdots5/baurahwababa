@@ -15,26 +15,6 @@
       "pujaName": "Aarti & Bhajans",
       "conductor": "Pandit Ji",
       "featured": true
-    },
-    {
-      "id": "1783169048693",
-      "date": "2026-07-10",
-      "time": "08:15",
-      "toDate": "2026-07-11",
-      "toTime": "08:15",
-      "pujaName": "astajam",
-      "conductor": "Pandit ji",
-      "featured": false
-    },
-    {
-      "id": "1783163954206",
-      "date": "2026-07-10",
-      "time": "07:50",
-      "toDate": "2026-07-10",
-      "toTime": "07:50",
-      "pujaName": "Abhishek",
-      "conductor": "mola ji",
-      "featured": false
     }
   ],
   "donors": [
@@ -44,43 +24,7 @@
       "type": "Donation",
       "amount": "₹21,000",
       "details": "Contributed for temple marble flooring.",
-      "created_at": "2026-07-04T13:53:35.968582+00:00",
-      "featured": true
-    },
-    {
-      "id": "2",
-      "name": "Smt. Shanti Devi",
-      "type": "Sewa (Service)",
-      "amount": "",
-      "details": "Organized daily flower decorations for Shravan month.",
-      "created_at": "2026-07-04T13:53:35.968582+00:00",
-      "featured": false
-    },
-    {
-      "id": "1783009413054",
-      "name": "Shri Vinod Sharma",
-      "type": "Material / Goods",
-      "amount": "100 bags of cement",
-      "details": "Donated for wall boundary",
-      "created_at": "2026-07-04T13:53:35.968582+00:00",
-      "featured": false
-    },
-    {
-      "id": "1783163709494",
-      "name": "raj singh",
-      "type": "Donation",
-      "amount": "2 bora giti",
-      "details": "har har mahadev",
-      "created_at": "2026-07-04T13:53:35.968582+00:00",
-      "featured": false
-    },
-    {
-      "id": "1783169675619",
-      "name": "ajay",
-      "type": "Donation",
-      "amount": "900",
-      "details": "ajay 900",
-      "created_at": "2026-07-04T13:53:35.968582+00:00",
+      "created_at": "2026-07-04T14:23:34.613963+00:00",
       "featured": false
     }
   ],
