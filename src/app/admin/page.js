@@ -56,7 +56,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (isAuthorized) {
-      fetch("/api/db")
+      fetch(`/api/db?t=${Date.now()}`, { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
           setDb(data);
