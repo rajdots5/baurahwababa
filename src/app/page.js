@@ -3,6 +3,10 @@ import fs from 'fs';
 import path from 'path';
 import styles from "./page.module.css";
 import { supabase } from '../utils/supabase';
+import VisitorCounter from "../components/VisitorCounter";
+
+// Force this page to always fetch fresh data from Supabase (no caching)
+export const dynamic = 'force-dynamic';
 
 // Helper casing converters for Supabase columns
 function mapMathadhishFromDb(m) {
@@ -21,6 +25,8 @@ function mapScheduleFromDb(s) {
     id: s.id,
     date: s.date,
     time: s.time,
+    toDate: s.todate || s.date,
+    toTime: s.totime || s.time,
     pujaName: s.pujaname || s.pujaName,
     conductor: s.conductor
   };
@@ -42,7 +48,14 @@ async function getTempleData() {
   let schedule = [];
   let donors = [];
   let gallery = [];
-  let fallback = false;
+
+  // Always read local db.json as fallback source
+  let localDb = { mathadhish, schedule, donors, gallery };
+  try {
+    const dbPath = path.join(process.cwd(), 'data', 'db.json');
+    const fileContents = fs.readFileSync(dbPath, 'utf8');
+    localDb = JSON.parse(fileContents);
+  } catch (e) {}
 
   try {
     const { data: mathadhishData, error: mError } = await supabase
@@ -52,9 +65,9 @@ async function getTempleData() {
       .maybeSingle();
 
     if (mError) throw mError;
-    if (mathadhishData) {
-      mathadhish = mapMathadhishFromDb(mathadhishData);
-    }
+    mathadhish = mathadhishData
+      ? mapMathadhishFromDb(mathadhishData)
+      : (localDb.mathadhish || mathadhish);
 
     const { data: scheduleData, error: sError } = await supabase
       .from('schedule')
@@ -62,55 +75,32 @@ async function getTempleData() {
       .order('date', { ascending: true });
 
     if (sError) throw sError;
-    if (scheduleData) {
-      schedule = scheduleData.map(mapScheduleFromDb);
-    }
+    schedule = (scheduleData && scheduleData.length > 0)
+      ? scheduleData.map(mapScheduleFromDb)
+      : (localDb.schedule || []);
 
-    try {
-      const { data: donorsData, error: dError } = await supabase
-        .from('donors')
-        .select('*');
-      if (!dError && donorsData) {
-        donors = donorsData;
-      } else {
-        fallback = true;
-      }
-    } catch (e) {
-      fallback = true;
-    }
+    const { data: donorsData, error: dError } = await supabase
+      .from('donors')
+      .select('*');
+    donors = (!dError && donorsData && donorsData.length > 0)
+      ? donorsData
+      : (localDb.donors || []);
 
-    try {
-      const { data: galleryData, error: gError } = await supabase
-        .from('gallery')
-        .select('*');
-      if (!gError && galleryData) {
-        gallery = galleryData.map(mapGalleryFromDb);
-      } else {
-        fallback = true;
-      }
-    } catch (e) {
-      fallback = true;
-    }
+    const { data: galleryData, error: gError } = await supabase
+      .from('gallery')
+      .select('*');
+    gallery = (!gError && galleryData && galleryData.length > 0)
+      ? galleryData.map(mapGalleryFromDb)
+      : (localDb.gallery || []);
+
   } catch (error) {
-    console.warn('Failed to fetch from Supabase, falling back to local JSON database:', error.message);
-    fallback = true;
-  }
-
-  if (fallback) {
-    try {
-      const dbPath = path.join(process.cwd(), 'data', 'db.json');
-      const fileContents = fs.readFileSync(dbPath, 'utf8');
-      const localDb = JSON.parse(fileContents);
-      return {
-        mathadhish: localDb.mathadhish || mathadhish,
-        schedule: localDb.schedule || schedule,
-        donors: localDb.donors || [],
-        gallery: localDb.gallery || []
-      };
-    } catch (localError) {
-      console.error('Failed to read local database:', localError);
-      return { mathadhish, schedule, donors, gallery };
-    }
+    console.warn('Supabase fetch failed, using local db.json:', error.message);
+    return {
+      mathadhish: localDb.mathadhish || mathadhish,
+      schedule: localDb.schedule || schedule,
+      donors: localDb.donors || [],
+      gallery: localDb.gallery || []
+    };
   }
 
   return { mathadhish, schedule, donors, gallery };
@@ -118,6 +108,16 @@ async function getTempleData() {
 
 export default async function Home() {
   const data = await getTempleData();
+
+  // Show only featured items on homepage; fall back to first 3 if none marked featured
+  const featuredGallery = data.gallery.filter(g => g.featured);
+  const displayGallery = featuredGallery.length > 0 ? featuredGallery : data.gallery.slice(0, 3);
+
+  const featuredSchedule = data.schedule.filter(s => s.featured);
+  const displaySchedule = featuredSchedule.length > 0 ? featuredSchedule : data.schedule.slice(0, 3);
+
+  const featuredDonors = data.donors.filter(d => d.featured);
+  const displayDonors = featuredDonors.length > 0 ? featuredDonors : data.donors.slice(0, 4);
 
   return (
     <>
@@ -135,6 +135,12 @@ export default async function Home() {
             </div>
             <div className={styles.logo}>Prachin Baurahwa<span> Mahadev</span></div>
           </div>
+          <input type="checkbox" id="mobile-menu-toggle" className={styles.menuToggle} />
+          <label htmlFor="mobile-menu-toggle" className={styles.hamburger}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </label>
           <nav className={styles.menu}>
             <a href="#home" className={styles.menuLink}>Home</a>
             <a href="#about" className={styles.menuLink}>About</a>
@@ -232,8 +238,8 @@ export default async function Home() {
             <h2 className={styles.sectionTitle}>Divine Gallery</h2>
             <p style={{textAlign: 'center', marginBottom: '3rem', color: '#666'}}>Darshan of Prachin Baurahwa Mahadev Shiv Mandir</p>
             <div className={styles.galleryGrid}>
-              {data.gallery && data.gallery.length > 0 ? (
-                data.gallery.map((item) => (
+              {displayGallery.length > 0 ? (
+                displayGallery.map((item) => (
                   <div key={item.id} className={styles.galleryCard}>
                     <div className={styles.galleryImageContainer}>
                       <Image src={item.imageUrl} alt={item.title} fill className={styles.galleryImg} unoptimized />
@@ -247,6 +253,9 @@ export default async function Home() {
               ) : (
                 <p style={{textAlign: 'center', width: '100%', color: '#888'}}>No gallery images added yet.</p>
               )}
+            </div>
+            <div style={{textAlign:'center', marginTop:'2.5rem'}}>
+              <a href="/gallery" style={{display:'inline-block', padding:'0.75rem 2rem', background:'var(--primary-color)', color:'white', borderRadius:'8px', fontWeight:700, textDecoration:'none', fontSize:'1rem'}}>View All Photos →</a>
             </div>
           </div>
         </section>
@@ -298,8 +307,8 @@ export default async function Home() {
             <p style={{textAlign: 'center', marginBottom: '3rem', color: '#666'}}>Plan your visit according to the divine rituals conducted by our priests.</p>
             
             <div className={styles.scheduleGrid}>
-              {data.schedule && data.schedule.length > 0 ? (
-                data.schedule.map((puja) => (
+              {displaySchedule.length > 0 ? (
+                displaySchedule.map((puja) => (
                   <div key={puja.id} className={styles.scheduleCard}>
                     <div className={styles.sDate}>
                       <span className={styles.sDay}>{new Date(puja.date).getDate()}</span>
@@ -307,7 +316,12 @@ export default async function Home() {
                     </div>
                     <div className={styles.sDetails}>
                       <h4>{puja.pujaName}</h4>
-                      <p className={styles.sTime}>⏰ {puja.time}</p>
+                      <p className={styles.sTime}>
+                        ⏰ {puja.time}
+                        {puja.toTime && puja.toTime !== puja.time && (
+                          <> → {puja.toDate && puja.toDate !== puja.date ? `${puja.toDate} ` : ""}{puja.toTime}</>
+                        )}
+                      </p>
                       <p className={styles.sConductor}>🙏 Conducted by: <strong>{puja.conductor}</strong></p>
                     </div>
                   </div>
@@ -315,6 +329,9 @@ export default async function Home() {
               ) : (
                 <p style={{textAlign: 'center', width: '100%'}}>No upcoming pujas currently scheduled.</p>
               )}
+            </div>
+            <div style={{textAlign:'center', marginTop:'2.5rem'}}>
+              <a href="/schedule" style={{display:'inline-block', padding:'0.75rem 2rem', background:'var(--primary-color)', color:'white', borderRadius:'8px', fontWeight:700, textDecoration:'none', fontSize:'1rem'}}>View Full Schedule →</a>
             </div>
           </div>
         </section>
@@ -328,8 +345,8 @@ export default async function Home() {
             </p>
             
             <div className={styles.donorGrid}>
-              {data.donors && data.donors.length > 0 ? (
-                data.donors.map((donor) => (
+              {displayDonors.length > 0 ? (
+                displayDonors.map((donor) => (
                   <div key={donor.id} className={styles.donorCard}>
                     <div className={styles.donorHeader}>
                       <h4 className={styles.donorName}>{donor.name}</h4>
@@ -345,6 +362,9 @@ export default async function Home() {
                 <p style={{textAlign: 'center', width: '100%', color: '#888'}}>No contributors published yet.</p>
               )}
             </div>
+            <div style={{textAlign:'center', marginTop:'2.5rem'}}>
+              <a href="/contributors" style={{display:'inline-block', padding:'0.75rem 2rem', background:'var(--primary-color)', color:'white', borderRadius:'8px', fontWeight:700, textDecoration:'none', fontSize:'1rem'}}>View All Contributors →</a>
+            </div>
           </div>
         </section>
       </main>
@@ -358,6 +378,14 @@ export default async function Home() {
           </p>
           <div className={styles.copyright}>
             &copy; {new Date().getFullYear()} Prachin Baurahwa Mahadev Shiv Mandir, Kushinagar. All rights reserved.
+            <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <span>Developed by</span>
+              <a href="https://www.instagram.com/raj_patharwa/" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'white', textDecoration: 'none', fontWeight: 600 }}>
+                <Image src="/images/developer.png" alt="Raj Singh" width={24} height={24} style={{ borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.3)' }} unoptimized />
+                Raj Singh
+              </a>
+            </div>
+            <VisitorCounter />
           </div>
         </div>
       </footer>

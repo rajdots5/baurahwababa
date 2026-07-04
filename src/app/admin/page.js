@@ -10,6 +10,7 @@ export default function AdminDashboard() {
   const [inputUsername, setInputUsername] = useState("");
   const [inputPassword, setInputPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
   
   const [db, setDb] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,8 +22,10 @@ export default function AdminDashboard() {
   const [mPhoto, setMPhoto] = useState("");
 
   // New Puja State
-  const [pDate, setPDate] = useState("");
-  const [pTime, setPTime] = useState("");
+  const [pFromDate, setPFromDate] = useState("");
+  const [pFromTime, setPFromTime] = useState("");
+  const [pToDate, setPToDate] = useState("");
+  const [pToTime, setPToTime] = useState("");
   const [pName, setPName] = useState("");
   const [pConductor, setPConductor] = useState("");
 
@@ -72,25 +75,29 @@ export default function AdminDashboard() {
     }
   }, [isAuthorized]);
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    const adminUser = process.env.NEXT_PUBLIC_ADMIN_USERNAME || "admin";
-    const adminPass = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123";
-    const superAdminUser = process.env.NEXT_PUBLIC_SUPER_ADMIN_USERNAME || "superadmin";
-    const superAdminPass = process.env.NEXT_PUBLIC_SUPER_ADMIN_PASSWORD || "superadmin123";
-
-    if (inputUsername === superAdminUser && inputPassword === superAdminPass) {
-      setRole("super_admin");
-      setIsAuthorized(true);
-      sessionStorage.setItem("admin_role", "super_admin");
-      setLoginError("");
-    } else if (inputUsername === adminUser && inputPassword === adminPass) {
-      setRole("admin");
-      setIsAuthorized(true);
-      sessionStorage.setItem("admin_role", "admin");
-      setLoginError("");
-    } else {
-      setLoginError("Invalid username or password!");
+    setLoginError("");
+    setLoginLoading(true);
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: inputUsername, password: inputPassword })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRole(data.role);
+        setIsAuthorized(true);
+        sessionStorage.setItem("admin_role", data.role);
+        setLoginError("");
+      } else {
+        setLoginError(data.error || "Invalid username or password!");
+      }
+    } catch (err) {
+      setLoginError("Cannot connect to server. Please try again.");
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -125,12 +132,45 @@ export default function AdminDashboard() {
     saveDatabase(newDb);
   };
 
+  const checkScheduleConflict = (fromDate, fromTime, toDate, toTime) => {
+    const newStart = new Date(`${fromDate}T${fromTime}`);
+    const newEnd   = new Date(`${toDate}T${toTime}`);
+    return db.schedule.find(existing => {
+      const exStart = new Date(`${existing.date}T${existing.time}`);
+      const exEnd   = new Date(`${existing.toDate || existing.date}T${existing.toTime || existing.time}`);
+      // Overlap: newStart < exEnd AND newEnd > exStart
+      return newStart < exEnd && newEnd > exStart;
+    }) || null;
+  };
+
   const handleAddPuja = (e) => {
     e.preventDefault();
+
+    // Validate: toDate+toTime must be after fromDate+fromTime
+    const start = new Date(`${pFromDate}T${pFromTime}`);
+    const end   = new Date(`${pToDate}T${pToTime}`);
+    if (end <= start) {
+      alert("⚠️ 'To' date/time must be after 'From' date/time.");
+      return;
+    }
+
+    // Conflict check against existing schedules
+    const conflict = checkScheduleConflict(pFromDate, pFromTime, pToDate, pToTime);
+    if (conflict) {
+      const confirmSave = window.confirm(
+        `⚠️ Time Conflict Detected!\n\n` +
+        `"${conflict.pujaName}" is already scheduled from ${conflict.date} ${conflict.time} to ${conflict.toDate || conflict.date} ${conflict.toTime || conflict.time}.\n\n` +
+        `Do you still want to add this schedule?`
+      );
+      if (!confirmSave) return;
+    }
+
     const newPuja = {
       id: Date.now().toString(),
-      date: pDate,
-      time: pTime,
+      date: pFromDate,
+      time: pFromTime,
+      toDate: pToDate,
+      toTime: pToTime,
       pujaName: pName,
       conductor: pConductor
     };
@@ -139,7 +179,7 @@ export default function AdminDashboard() {
       schedule: [...db.schedule, newPuja]
     };
     saveDatabase(newDb);
-    setPDate(""); setPTime(""); setPName(""); setPConductor("");
+    setPFromDate(""); setPFromTime(""); setPToDate(""); setPToTime(""); setPName(""); setPConductor("");
   };
 
   const handleDeletePuja = (id) => {
@@ -202,6 +242,30 @@ export default function AdminDashboard() {
     saveDatabase(newDb);
     setGallery(newDb.gallery);
   };
+
+  const handleToggleFeatured = async (table, id, currentFeatured) => {
+    const newVal = !currentFeatured;
+    try {
+      const res = await fetch('/api/feature', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table, id, featured: newVal })
+      });
+      const data = await res.json();
+      if (!data.success) { alert('Failed: ' + (data.error || 'unknown error')); return; }
+      // Optimistically update local state
+      if (table === 'gallery') {
+        setGallery(prev => prev.map(g => g.id === id ? { ...g, featured: newVal } : g));
+      } else if (table === 'schedule') {
+        setDb(prev => ({ ...prev, schedule: prev.schedule.map(s => s.id === id ? { ...s, featured: newVal } : s) }));
+      } else if (table === 'donors') {
+        setDonors(prev => prev.map(d => d.id === id ? { ...d, featured: newVal } : d));
+      }
+    } catch (err) {
+      alert('Network error. Try again.');
+    }
+  };
+
 
   const handleUploadGalleryImage = async (e) => {
     const file = e.target.files[0];
@@ -291,7 +355,9 @@ export default function AdminDashboard() {
               />
               {loginError && <p style={{ color: "#dc2626", fontSize: "0.85rem", margin: "0.25rem 0", fontWeight: "600" }}>{loginError}</p>}
             </div>
-            <button type="submit" className={styles.button}>Login</button>
+            <button type="submit" className={styles.button} disabled={loginLoading}>
+              {loginLoading ? "Verifying..." : "Login"}
+            </button>
           </form>
         </div>
       </div>
@@ -350,14 +416,29 @@ export default function AdminDashboard() {
         <section className={styles.card}>
           <h2>Add New Puja Schedule</h2>
           <form onSubmit={handleAddPuja} className={styles.form}>
+            <p style={{ fontSize: "0.82rem", color: "#6b7280", marginBottom: "1rem", background: "#f9fafb", padding: "0.6rem 0.8rem", borderRadius: "6px", borderLeft: "3px solid var(--primary-color)" }}>
+              ⚠️ A warning will appear if the selected time conflicts with an existing puja.
+            </p>
+            <div className={styles.fromToLabel}>From</div>
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
-                <label>Date</label>
-                <input type="date" value={pDate} onChange={(e) => setPDate(e.target.value)} required />
+                <label>From Date</label>
+                <input type="date" value={pFromDate} onChange={(e) => setPFromDate(e.target.value)} required />
               </div>
               <div className={styles.formGroup}>
-                <label>Time</label>
-                <input type="time" value={pTime} onChange={(e) => setPTime(e.target.value)} required />
+                <label>From Time</label>
+                <input type="time" value={pFromTime} onChange={(e) => setPFromTime(e.target.value)} required />
+              </div>
+            </div>
+            <div className={styles.fromToLabel}>To</div>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label>To Date</label>
+                <input type="date" value={pToDate} onChange={(e) => setPToDate(e.target.value)} required />
+              </div>
+              <div className={styles.formGroup}>
+                <label>To Time</label>
+                <input type="time" value={pToTime} onChange={(e) => setPToTime(e.target.value)} required />
               </div>
             </div>
             <div className={styles.formGroup}>
@@ -377,30 +458,44 @@ export default function AdminDashboard() {
           {db.schedule.length === 0 ? (
             <p>No upcoming pujas scheduled.</p>
           ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Puja Name</th>
-                  <th>Conductor</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {db.schedule.map(puja => (
-                  <tr key={puja.id}>
-                    <td>{puja.date}</td>
-                    <td>{puja.time}</td>
-                    <td>{puja.pujaName}</td>
-                    <td>{puja.conductor}</td>
-                    <td>
-                      <button onClick={() => handleDeletePuja(puja.id)} className={styles.deleteBtn}>Delete</button>
-                    </td>
+            <div className={styles.tableWrapper}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>From Date</th>
+                    <th>From Time</th>
+                    <th>To Date</th>
+                    <th>To Time</th>
+                    <th>Puja Name</th>
+                    <th>Conductor</th>
+                    <th>Homepage</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {db.schedule.map(puja => (
+                    <tr key={puja.id}>
+                      <td>{puja.date}</td>
+                      <td>{puja.time}</td>
+                      <td>{puja.toDate || puja.date}</td>
+                      <td>{puja.toTime || puja.time}</td>
+                      <td>{puja.pujaName}</td>
+                      <td>{puja.conductor}</td>
+                      <td>
+                        <button
+                          onClick={() => handleToggleFeatured('schedule', puja.id, puja.featured || false)}
+                          className={puja.featured ? styles.featuredBtnOn : styles.featuredBtnOff}
+                          title={puja.featured ? 'Remove from homepage' : 'Show on homepage'}
+                        >{puja.featured ? '⭐ Shown' : '☆ Hidden'}</button>
+                      </td>
+                      <td>
+                        <button onClick={() => handleDeletePuja(puja.id)} className={styles.deleteBtn}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
 
@@ -437,42 +532,44 @@ export default function AdminDashboard() {
           {donors.length === 0 ? (
             <p>No contributors published yet.</p>
           ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Amount / Value</th>
-                  <th>Details</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {donors.map(donor => (
-                  <tr key={donor.id}>
-                    <td style={{ fontWeight: 600 }}>{donor.name}</td>
-                    <td>
-                      <span style={{ 
-                        display: "inline-block", 
-                        padding: "0.25rem 0.5rem", 
-                        borderRadius: "50px", 
-                        fontSize: "0.8rem", 
-                        fontWeight: 600,
-                        backgroundColor: donor.type === "Donation" ? "#ecfdf5" : donor.type === "Sewa (Service)" ? "#eff6ff" : "#fff7ed",
-                        color: donor.type === "Donation" ? "#047857" : donor.type === "Sewa (Service)" ? "#1d4ed8" : "#c2410c"
-                      }}>
-                        {donor.type}
-                      </span>
-                    </td>
-                    <td style={{ color: "var(--primary-color)", fontWeight: "600" }}>{donor.amount || "-"}</td>
-                    <td>{donor.details || "-"}</td>
-                    <td>
-                      <button onClick={() => handleDeleteDonor(donor.id)} className={styles.deleteBtn}>Delete</button>
-                    </td>
+            <div className={styles.tableWrapper}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Amount / Value</th>
+                    <th>Details</th>
+                    <th>Homepage</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {donors.map(donor => (
+                    <tr key={donor.id}>
+                      <td style={{ fontWeight: 600 }}>{donor.name}</td>
+                      <td>
+                        <span style={{ display: "inline-block", padding: "0.25rem 0.5rem", borderRadius: "50px", fontSize: "0.8rem", fontWeight: 600, backgroundColor: donor.type === "Donation" ? "#ecfdf5" : donor.type === "Sewa (Service)" ? "#eff6ff" : "#fff7ed", color: donor.type === "Donation" ? "#047857" : donor.type === "Sewa (Service)" ? "#1d4ed8" : "#c2410c" }}>
+                          {donor.type}
+                        </span>
+                      </td>
+                      <td style={{ color: "var(--primary-color)", fontWeight: "600" }}>{donor.amount || "-"}</td>
+                      <td>{donor.details || "-"}</td>
+                      <td>
+                        <button
+                          onClick={() => handleToggleFeatured('donors', donor.id, donor.featured || false)}
+                          className={donor.featured ? styles.featuredBtnOn : styles.featuredBtnOff}
+                          title={donor.featured ? 'Remove from homepage' : 'Show on homepage'}
+                        >{donor.featured ? '⭐ Shown' : '☆ Hidden'}</button>
+                      </td>
+                      <td>
+                        <button onClick={() => handleDeleteDonor(donor.id)} className={styles.deleteBtn}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
 
@@ -501,36 +598,42 @@ export default function AdminDashboard() {
         </section>
 
         <section className={`${styles.card} ${styles.fullWidth}`}>
-          <h2>Current Gallery Items</h2>
+          <h2>Current Gallery Images</h2>
           {gallery.length === 0 ? (
-            <p>No gallery items published yet.</p>
+            <div className={styles.emptyGallery}>
+              <span style={{ fontSize: "3rem" }}>🖼️</span>
+              <p>No gallery images added yet. Add one using the form above.</p>
+            </div>
           ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Preview</th>
-                  <th>Title</th>
-                  <th>Image URL</th>
-                  <th>Description</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {gallery.map(item => (
-                  <tr key={item.id}>
-                    <td>
-                      <img src={item.imageUrl} alt={item.title} style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "8px", border: "1px solid #e5e7eb" }} />
-                    </td>
-                    <td style={{ fontWeight: 600 }}>{item.title}</td>
-                    <td style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "monospace" }}>{item.imageUrl}</td>
-                    <td>{item.description || "-"}</td>
-                    <td>
-                      <button onClick={() => handleDeleteGallery(item.id)} className={styles.deleteBtn}>Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className={styles.galleryAdminGrid}>
+              {gallery.map(item => (
+                <div key={item.id} className={styles.galleryAdminCard}>
+                  <div className={styles.galleryAdminImgWrap}>
+                    <img src={item.imageUrl} alt={item.title} className={styles.galleryAdminImg} />
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete "${item.title}"? This cannot be undone.`)) {
+                          handleDeleteGallery(item.id);
+                        }
+                      }}
+                      className={styles.galleryDeleteBtn}
+                      title="Delete this image"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                  <div className={styles.galleryAdminInfo}>
+                    <p className={styles.galleryAdminTitle}>{item.title}</p>
+                    {item.description && <p className={styles.galleryAdminDesc}>{item.description}</p>}
+                    <button
+                      onClick={() => handleToggleFeatured('gallery', item.id, item.featured || false)}
+                      className={item.featured ? styles.featuredBtnOn : styles.featuredBtnOff}
+                      style={{ marginTop: '0.4rem', width: '100%' }}
+                    >{item.featured ? '⭐ On Homepage' : '☆ Add to Homepage'}</button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </section>
       </div>

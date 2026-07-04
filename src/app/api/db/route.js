@@ -32,8 +32,11 @@ function mapScheduleFromDb(s) {
     id: s.id,
     date: s.date,
     time: s.time,
+    toDate: s.todate || s.date,
+    toTime: s.totime || s.time,
     pujaName: s.pujaname || s.pujaName,
-    conductor: s.conductor
+    conductor: s.conductor,
+    featured: s.featured || false
   };
 }
 
@@ -43,8 +46,11 @@ function mapScheduleToDb(s) {
     id: s.id.toString(),
     date: s.date,
     time: s.time,
+    todate: s.toDate || s.date,
+    totime: s.toTime || s.time,
     pujaname: s.pujaName,
-    conductor: s.conductor
+    conductor: s.conductor,
+    featured: s.featured || false
   };
 }
 
@@ -54,7 +60,8 @@ function mapGalleryFromDb(g) {
     id: g.id,
     title: g.title,
     description: g.description,
-    imageUrl: g.imageurl || g.imageUrl
+    imageUrl: g.imageurl || g.imageUrl,
+    featured: g.featured || false
   };
 }
 
@@ -64,7 +71,8 @@ function mapGalleryToDb(g) {
     id: g.id.toString(),
     title: g.title,
     description: g.description,
-    imageurl: g.imageUrl
+    imageurl: g.imageUrl,
+    featured: g.featured || false
   };
 }
 
