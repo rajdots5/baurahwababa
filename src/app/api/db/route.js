@@ -256,13 +256,14 @@ export async function POST(request) {
     if (data) {
       fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf8');
     }
-    return NextResponse.json({ 
-      success: true, 
-      supabase: supabaseSuccess, 
-      supabaseError: supabaseErrorMsg,
-      data 
-    });
   } catch (localError) {
-    return NextResponse.json({ error: 'Failed to write to local database' }, { status: 500 });
+    console.warn('Could not write to local db.json during POST (expected on Vercel):', localError.message);
   }
+
+  return NextResponse.json({ 
+    success: true, 
+    supabase: supabaseSuccess, 
+    supabaseError: supabaseErrorMsg,
+    data 
+  });
 }
