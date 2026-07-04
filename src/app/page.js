@@ -28,7 +28,8 @@ function mapScheduleFromDb(s) {
     toDate: s.todate || s.date,
     toTime: s.totime || s.time,
     pujaName: s.pujaname || s.pujaName,
-    conductor: s.conductor
+    conductor: s.conductor,
+    featured: s.featured || false
   };
 }
 
@@ -38,7 +39,8 @@ function mapGalleryFromDb(g) {
     id: g.id,
     title: g.title,
     description: g.description,
-    imageUrl: g.imageurl || g.imageUrl
+    imageUrl: g.imageurl || g.imageUrl,
+    featured: g.featured || false
   };
 }
 
