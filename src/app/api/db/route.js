@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { supabase } from '../../../utils/supabase';
+import { supabaseAdmin as supabase } from '../../../utils/supabaseAdmin';
 
 const dbPath = path.join(process.cwd(), 'data', 'db.json');
 
