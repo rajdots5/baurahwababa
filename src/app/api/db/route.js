@@ -5,6 +5,8 @@ import { supabaseAdmin as supabase } from '../../../utils/supabaseAdmin';
 
 const dbPath = path.join(process.cwd(), 'data', 'db.json');
 
+export const dynamic = 'force-dynamic';
+
 // Casing Mapping Helpers
 function mapMathadhishFromDb(m) {
   if (!m) return { name: "", phone: "", details: "", photoUrl: "" };
