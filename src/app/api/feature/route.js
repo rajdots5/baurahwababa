@@ -11,7 +11,7 @@ export async function PATCH(request) {
     const { error } = await supabaseAdmin
       .from(table)
       .update({ featured: Boolean(featured) })
-      .eq('id', String(id));
+      .eq('id', id);
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (err) {

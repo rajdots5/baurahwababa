@@ -109,15 +109,10 @@ async function getTempleData() {
 export default async function Home() {
   const data = await getTempleData();
 
-  // Show only featured items on homepage; fall back to first 3 if none marked featured
-  const featuredGallery = data.gallery.filter(g => g.featured);
-  const displayGallery = featuredGallery.length > 0 ? featuredGallery : data.gallery.slice(0, 3);
-
-  const featuredSchedule = data.schedule.filter(s => s.featured);
-  const displaySchedule = featuredSchedule.length > 0 ? featuredSchedule : data.schedule.slice(0, 3);
-
-  const featuredDonors = data.donors.filter(d => d.featured);
-  const displayDonors = featuredDonors.length > 0 ? featuredDonors : data.donors.slice(0, 4);
+  // Show only featured items on homepage
+  const displayGallery = data.gallery.filter(g => g.featured);
+  const displaySchedule = data.schedule.filter(s => s.featured);
+  const displayDonors = data.donors.filter(d => d.featured);
 
   return (
     <>
