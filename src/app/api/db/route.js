@@ -121,13 +121,8 @@ export async function GET() {
       .order('date', { ascending: true });
 
     if (sError) throw sError;
-    if (scheduleData && scheduleData.length > 0) {
+    if (scheduleData) {
       schedule = scheduleData.map(mapScheduleFromDb);
-    } else if (localDb.schedule && localDb.schedule.length > 0) {
-      // Seed schedules to Supabase
-      const newSchedules = localDb.schedule.map(mapScheduleToDb);
-      await supabase.from('schedule').insert(newSchedules);
-      schedule = localDb.schedule;
     }
 
     // 3. Donors
@@ -136,19 +131,8 @@ export async function GET() {
       .select('*');
 
     if (dError) throw dError;
-    if (donorsData && donorsData.length > 0) {
+    if (donorsData) {
       donors = donorsData;
-    } else if (localDb.donors && localDb.donors.length > 0) {
-      // Seed donors to Supabase
-      const newDonors = localDb.donors.map(item => ({
-        id: item.id.toString(),
-        name: item.name,
-        type: item.type,
-        amount: item.amount,
-        details: item.details
-      }));
-      await supabase.from('donors').insert(newDonors);
-      donors = localDb.donors;
     }
 
     // 4. Gallery
@@ -157,18 +141,17 @@ export async function GET() {
       .select('*');
 
     if (gError) throw gError;
-    if (galleryData && galleryData.length > 0) {
+    if (galleryData) {
       gallery = galleryData.map(mapGalleryFromDb);
-    } else if (localDb.gallery && localDb.gallery.length > 0) {
-      // Seed gallery to Supabase
-      const newGallery = localDb.gallery.map(mapGalleryToDb);
-      await supabase.from('gallery').insert(newGallery);
-      gallery = localDb.gallery;
     }
 
-    // Save/Sync back to local db.json
-    const syncedDb = { mathadhish, schedule, donors, gallery };
-    fs.writeFileSync(dbPath, JSON.stringify(syncedDb, null, 2), 'utf8');
+    // Save/Sync back to local db.json (will fail silently in read-only environments like Vercel)
+    try {
+      const syncedDb = { mathadhish, schedule, donors, gallery };
+      fs.writeFileSync(dbPath, JSON.stringify(syncedDb, null, 2), 'utf8');
+    } catch (fsError) {
+      console.warn('Could not write to local db.json (expected in Vercel):', fsError.message);
+    }
 
   } catch (error) {
     console.warn('GET error from Supabase, falling back to local JSON database:', error.message);
